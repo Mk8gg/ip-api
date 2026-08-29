@@ -1,3 +1,4 @@
+import { FRONTEND_HTML } from './frontend.js'
 import { getFlag } from './utils'
 import { CORS_HEADERS } from './config'
 
@@ -5,13 +6,21 @@ export default {
   fetch(request) {
     const ip = request.headers.get('cf-connecting-ipv6') || request.headers.get('cf-connecting-ip') || request.headers.get('x-real-ip')
     const { pathname } = new URL(request.url)
+    const wantsHtml = request.headers.get('accept')?.includes('text/html')
+
+    if (pathname === '/' && wantsHtml) {
+      return new Response(FRONTEND_HTML, {
+        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' }
+      })
+    }
+
     console.log(ip, pathname)
     if (pathname === '/geo') {
       const country = request.cf?.country || request.headers.get('cf-ipcountry')
       const colo = request.headers.get('cf-ray')?.split('-')[1]
       const geo = {
         flag: country && getFlag(country),
-        country: country,
+        country,
         countryRegion: request.cf?.region || request.headers.get('cf-region'),
         city: request.cf?.city || request.headers.get('cf-ipcity'),
         region: request.cf?.colo || colo,
@@ -20,21 +29,10 @@ export default {
         asOrganization: request.cf?.asOrganization || request.headers.get('x-asn'),
       }
       console.log(geo)
-      return Response.json({
-        ip,
-        ...geo
-      }, {
-        headers: {
-          ...CORS_HEADERS,
-          'x-client-ip': ip
-        }
+      return Response.json({ ip, ...geo }, {
+        headers: { ...CORS_HEADERS, 'x-client-ip': ip }
       })
     }
-    return new Response(ip, {
-      headers: {
-        ...CORS_HEADERS,
-        'x-client-ip': ip
-      }
-    })
+    return new Response(ip, { headers: { ...CORS_HEADERS, 'x-client-ip': ip } })
   }
 }
