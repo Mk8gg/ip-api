@@ -81,7 +81,7 @@ chmod 700 "$ECH_DIR" "$CERT_DIR"
 
 UUID="$(cat /proc/sys/kernel/random/uuid)"
 PASSWORD="$(cat /proc/sys/kernel/random/uuid)"
-SS_PASSWORD="$(cat /proc/sys/kernel/random/uuid | tr -d '-')"
+SS_PASSWORD=""
 SHORT_ID="$(openssl rand -hex 8 2>/dev/null || printf '%s' "${UUID//-/}" | cut -c1-16)"
 
 TLS_MODE="acme"
@@ -128,16 +128,18 @@ if [ "$PROTOCOL" = "shadowsocks" ]; then
     echo "  3) chacha20-ietf-poly1305"
     read -r -p "选择 [1-3]: " SS_CHOICE
     case "${SS_CHOICE:-1}" in
-      1) SS_METHOD="2022-blake3-aes-128-gcm" ;;
-      2) SS_METHOD="2022-blake3-aes-256-gcm" ;;
-      3) SS_METHOD="chacha20-ietf-poly1305" ;;
+      1) SS_METHOD="2022-blake3-aes-128-gcm"; SS_PASSWORD="$(sing-box generate rand --base64 16)" ;;
+      2) SS_METHOD="2022-blake3-aes-256-gcm"; SS_PASSWORD="$(sing-box generate rand --base64 32)" ;;
+      3) SS_METHOD="chacha20-ietf-poly1305"; SS_PASSWORD="$PASSWORD" ;;
       *) red "无效选择。"; exit 1 ;;
     esac
 fi
 
-if [ "$TLS_MODE" = "reality" ]; then
-    read -r -p "Reality 握手域名 [www.amd.com]: " REALITY_SERVER
-    REALITY_SERVER="${REALITY_SERVER:-www.amd.com}"
+REALITY_SERVER="www.cloudflare.com"
+
+if [ "$TLS_MODE" = "reality" ] || [ "$PROTOCOL" = "shadowtls" ]; then
+    read -r -p "握手/伪装域名 [www.cloudflare.com]: " REALITY_SERVER
+    REALITY_SERVER="${REALITY_SERVER:-www.cloudflare.com}"
     REALITY_KEY="$(sing-box generate reality-keypair)"
     REALITY_PRIVATE="$(printf '%s\n' "$REALITY_KEY" | awk '/PrivateKey/ {print $2}')"
     REALITY_PUBLIC="$(printf '%s\n' "$REALITY_KEY" | awk '/PublicKey/ {print $2}')"
